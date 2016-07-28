@@ -6,8 +6,8 @@ from test_apns_certfilecheck import *
 
 # conditionally test rest_framework api if the DRF package is installed
 try:
-	import rest_framework
+    import rest_framework
 except ImportError:
-	pass
+    pass
 else:
-	from test_rest_framework import *
+    from test_rest_framework import *
