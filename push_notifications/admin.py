@@ -1,8 +1,9 @@
 from django.apps import apps
 from django.contrib import admin, messages
 from django.utils.translation import ugettext_lazy as _
+
 from .gcm import GCMError
-from .models import APNSDevice, GCMDevice, get_expired_tokens
+from .models import APNSDevice, GCMDevice, get_expired_tokens, Notification
 from .settings import PUSH_NOTIFICATIONS_SETTINGS as SETTINGS
 
 User = apps.get_model(*SETTINGS["USER_MODEL"].split("."))
@@ -87,5 +88,34 @@ class DeviceAdmin(admin.ModelAdmin):
             d.save()
 
 
+class HasDevicesFilter(admin.SimpleListFilter):
+    title = _('has devices')
+    parameter_name = 'has_devices'
+
+
+    def lookups(self, request, model_admin):
+        return (
+            ('y', _('With Devices')),
+            ('n', _('Without Devices'))
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'y':
+            return queryset.filter(devices__isnull=False)
+        if self.value() == 'n':
+            return queryset.filter(devices__isnull=True)
+
+
+class NotificationAdmin(admin.ModelAdmin):
+    readonly_fields = ['devices', ]
+    list_display = ['__str__', 'message', 'kwargs', 'sent_at']
+    search_fields = ['message', 'kwargs']
+    list_filter = [HasDevicesFilter]
+
+    def get_queryset(self, request):
+        return super(NotificationAdmin, self).get_queryset(request).prefetch_related('devices')
+
+
 admin.site.register(APNSDevice, DeviceAdmin)
 admin.site.register(GCMDevice, DeviceAdmin)
+admin.site.register(Notification, NotificationAdmin)

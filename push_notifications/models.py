@@ -1,5 +1,7 @@
 from __future__ import unicode_literals
 
+import json
+
 from django.db import models
 from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import ugettext_lazy as _
@@ -14,6 +16,26 @@ def get_device_model_by_type(device_type):
         return GCMDevice
 
     return None
+
+
+class Notification(models.Model):
+    devices = models.ManyToManyField('Device', related_name='sent_notifications')
+    message = models.TextField()
+    kwargs = models.TextField()
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    @classmethod
+    def create_notification_for(cls, devices, message, **kwargs):
+        notification = cls(message=message, kwargs=json.dumps(kwargs))
+        notification.save()
+        notification.devices.add(*list(devices))
+
+    def __unicode__(self):
+        if self.devices.count() > 1:
+            others_text = ' and %s other' % (self.devices.count() - 1)
+        else:
+            others_text = ''
+        return u'%s%s: %s' % (self.devices.first(), others_text, self.message)
 
 
 class DeviceQuerySet(models.query.QuerySet):
@@ -52,6 +74,17 @@ class Device(models.Model):
 
     device_type = models.IntegerField(choices=DEVICE_TYPES, editable=False)
 
+    def send_message(self, message, **kwargs):
+        if self.__class__ != Device:
+            return Notification.create_notification_for(self, message, **kwargs)
+
+        if self.device_type == Device.APNS:
+            self.__class__ = APNSDevice
+        else:
+            self.__class__ = GCMDevice
+
+        self.send_message(message, **kwargs)
+
     def __str__(self):
         return self.name or \
                str(self.device_id or "") or \
@@ -67,6 +100,8 @@ class GCMDeviceQuerySet(models.query.QuerySet):
     def send_message(self, message, **kwargs):
         if self:
             from .gcm import gcm_send_bulk_message
+
+            Notification.create_notification_for(self, message, **kwargs)
 
             data = kwargs.pop("extra", {})
             if message is not None:
@@ -92,6 +127,9 @@ class GCMDevice(Device):
 
     def send_message(self, message, **kwargs):
         from .gcm import gcm_send_message
+
+        super(GCMDevice, self).send_message(message, **kwargs)
+
         data = kwargs.pop("extra", {})
         if message is not None:
             data["message"] = message
@@ -107,6 +145,9 @@ class APNSDeviceQuerySet(models.query.QuerySet):
     def send_message(self, message, **kwargs):
         if self:
             from .apns import apns_send_bulk_message
+
+            Notification.create_notification_for(self, message, **kwargs)
+
             reg_ids = list(self.filter(active=True).values_list('registration_id', flat=True))
             return apns_send_bulk_message(registration_ids=reg_ids, alert=message, **kwargs)
 
@@ -118,14 +159,13 @@ class APNSDevice(Device):
         verbose_name = _("APNS device")
         proxy = True
 
-
     def save(self, *args, **kwargs):
         self.device_type = Device.APNS
         super(APNSDevice, self).save(*args, **kwargs)
 
     def send_message(self, message, **kwargs):
         from .apns import apns_send_message
-
+        super(APNSDevice, self).send_message(message, **kwargs)
         return apns_send_message(registration_id=self.registration_id, alert=message, **kwargs)
 
 
