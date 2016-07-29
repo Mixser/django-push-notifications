@@ -126,7 +126,7 @@ class APNSDevice(Device):
     def send_message(self, message, **kwargs):
         from .apns import apns_send_message
 
-        return apns_send_message(registration_id=self.registration_id, alert=message, extra=message, **kwargs)
+        return apns_send_message(registration_id=self.registration_id, alert=message, **kwargs)
 
 
 # This is an APNS-only function right now, but maybe GCM will implement it
