@@ -8,7 +8,7 @@ from django.conf import settings
 
 class Migration(migrations.Migration):
     dependencies = [
-        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+        migrations.swappable_dependency(settings.PUSH_NOTIFICATIONS_SETTINGS['USER_MODEL']),
     ]
 
     operations = [
@@ -45,7 +45,7 @@ class Migration(migrations.Migration):
                     help_text='ANDROID_ID / TelephonyManager.getDeviceId() (always as hex)', null=True,
                     verbose_name='Device ID', blank=True, db_index=True)),
                 ('registration_id', models.TextField(verbose_name='Registration ID')),
-                ('user', models.ForeignKey(blank=True, to=settings.AUTH_USER_MODEL, null=True)),
+                ('user', models.ForeignKey(blank=True, to=settings.PUSH_NOTIFICATIONS_SETTINGS['USER_MODEL'], null=True)),
             ],
             options={
                 'verbose_name': 'GCM device',
