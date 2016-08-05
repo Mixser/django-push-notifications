@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 import json
+import collections
 
 from django.db import models
 from django.utils.encoding import python_2_unicode_compatible
@@ -28,7 +29,11 @@ class Notification(models.Model):
     def create_notification_for(cls, devices, message, **kwargs):
         notification = cls(message=message, kwargs=json.dumps(kwargs))
         notification.save()
-        notification.devices.add(*list(devices))
+
+        if not isinstance(devices, collections.Iterable):
+            devices = [devices, ]
+
+        notification.devices.add(*devices)
 
     def __unicode__(self):
         if self.devices.count() > 1:
